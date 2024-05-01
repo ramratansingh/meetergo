@@ -1,28 +1,6 @@
-import React, { ReactNode, useState  } from 'react';
+import React, { useState } from 'react';
 import { useQuery  } from 'react-query';
 import { TextField, InputLabel, Button, Table, TableHead, TableBody, TableRow, TableCell } from '@mui/material';
-
-
-interface NeoWs {
-  id: string;
-  name: string;
-  is_potentially_hazardous_asteroid: boolean;
-  estimated_diameter: {
-    meters: {
-      estimated_diameter_max: number;
-    };
-  };
-  close_approach_data: {
-    epoch_date_close_approach: string;
-    close_approach_date_full: string;
-    miss_distance: {
-      kilometers: number;
-    };
-    relative_velocity: {
-      kilometers_per_hour: number;
-    };
-  }[];
-}
 
 const NeoData = () => {
 
@@ -70,13 +48,28 @@ const NeoData = () => {
       })
       .then(data => {
         console.log('neos data from api nasa',data);
-      
-        // Extract data and sort by close approach time
-        const neoList: NeoWs[] = data.near_earth_objects[Object.keys(data.near_earth_objects)[0]];
 
-        neoList.sort((a: NeoWs, b: NeoWs) => {
-          const timeA = new Date(a.close_approach_data[0].epoch_date_close_approach);
-          const timeB = new Date(b.close_approach_data[0].epoch_date_close_approach);
+        const neoList:any = [];
+        Object.keys(data.near_earth_objects).forEach(date => {
+          const neoData = data.near_earth_objects[date];
+          neoList.push(
+            ...neoData.map((neo: any)  => ({
+              id: neo.id,
+              time: neo.close_approach_data[0].close_approach_date_full,
+              epoch_date_close_approach: neo.close_approach_data[0].epoch_date_close_approach,
+              name: neo.name,
+              potentialHazard: neo.is_potentially_hazardous_asteroid ? 'Yes' : 'No',
+              estimatedDiameter: Math.round(neo.estimated_diameter.meters.estimated_diameter_max),
+              missDistance: Math.round(neo.close_approach_data[0].miss_distance.kilometers),
+              velocity: Math.round(neo.close_approach_data[0].relative_velocity.kilometers_per_hour)
+            }))
+          );
+        });
+
+        // sort neo data
+        neoList.sort((a:any, b:any) => {
+          const timeA = new Date(a.epoch_date_close_approach);
+          const timeB = new Date(b.epoch_date_close_approach);
           return timeB.getTime() - timeA.getTime();
         });
       
@@ -90,7 +83,17 @@ const NeoData = () => {
   if (isLoading) return <div>Loading</div>;
   if (!data) return <div>Record Not Found</div>;
 
+  // pagination  start
   const totalPages = Math.ceil(data.length / pageSize);
+  console.log('totalPages',totalPages);
+
+  // Calculate the range of NEOs to display for the current page
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, data.length);
+
+  // Extract the NEOs for the current page
+  const pageNEOs = data.slice(startIndex, endIndex);
+  // pagination end
 
   return (
     <div>
@@ -120,14 +123,14 @@ const NeoData = () => {
             </TableRow>
         </TableHead>
         <TableBody>
-          {data.map((neo) => (
+          {pageNEOs.map((neo:any) => (
             <TableRow key={neo.id}>
-              <TableCell>{neo.close_approach_data[0].close_approach_date_full}</TableCell>
+              <TableCell>{neo.time}</TableCell>
               <TableCell>{neo.name}</TableCell>
               <TableCell>{neo.is_potentially_hazardous_asteroid ? 'Yes' : 'No'}</TableCell>
-              <TableCell>{Math.round(neo.estimated_diameter.meters.estimated_diameter_max)}</TableCell>
-              <TableCell>{Math.round(neo.close_approach_data[0].miss_distance.kilometers)}</TableCell>
-              <TableCell>{Math.round(neo.close_approach_data[0].relative_velocity.kilometers_per_hour)}</TableCell>
+              <TableCell>{Math.round(neo.estimatedDiameter)}</TableCell>
+              <TableCell>{Math.round(neo.missDistance)}</TableCell>
+              <TableCell>{Math.round(neo.velocity)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
